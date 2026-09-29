@@ -1,0 +1,98 @@
+Feature file-
+
+@sanity
+Scenario: create booking
+* def contentType = 'application/json'
+* def accept = 'application/json'
+* def requestpayload = read('classpath:RequestPayloads/createbookingrequest.json')
+Given path '/booking'
+And request requestpayload
+And header Content-Type = contentType
+And header Accept = accept
+When method post
+Then status 200
+* print response
+And match response.booking.firstname == requestpayload.firstname
+And match response.bookingid != null
+And match response.booking == requestpayload
+* def bookingID = response.bookingid
+* print bookingID
+#Get booking
+#* def payload = read('classpath:RequestPayloads/createbookingrequest.json')
+Given path '/booking', bookingID
+And header Accept = 'application/json'
+When method Get
+Then status 200
+And match response == requestpayload
+#Get booking by first name and last name
+Given path '/booking'
+And param firstname = requestpayload.firstname
+And param lastname = requestpayload.lastname
+When method Get
+Then status 200
+* print response
+And match response[*].bookingid contains bookingID
+#Update booking
+* def token = getToken()
+* print token
+Given path '/booking', bookingID
+And header Cookie = 'token=' +token
+#And headers {Content-Type : contentType, Accept : accept}
+And header Content-Type = contentType
+And header Accept = accept
+#And set requestpayload.firstname = 'SR'
+#* def updatedFN = 'SR'
+#* requestpayload.firstname = updatedFN
+* requestpayload.firstname = 'SR'
+* print requestpayload
+And request requestpayload
+When method Put
+Then status 200
+* print response
+And match response.firstname == 'SR'
+#Delete created booking
+ Given path 'booking', bookingID
+ And header Authorization = 'Basic '+authorization
+ When method Delete
+ Then status 201
+ * print response
+ And match response == 'Created'
+ #check whether Id is deleted or not
+ Given path 'booking'
+ When method Get
+ Then status 200
+ * print response
+ And match response[*].bookingid !contains bookingID
+
+ Karate.config file-
+function fn() {
+  var env = karate.env; // get system property 'karate.env'
+  karate.log('karate.env system property was:', env);
+  if (!env) {
+    env = 'dev';
+  }
+  var config = {
+    env: env,
+    myVarName: 'someValue',
+	baseurl: 'https://restful-booker.herokuapp.com',
+	username : 'admin',
+	password: 'password123'
+  }
+ karate.configure('ssl', true);
+ karate.configure('url', config.baseurl);
+ config.getToken = function(){
+	var auth = karate.callSingle('classpath:com/automation/feature/AuthToken.feature')
+	return auth.accesstoken;
+ }
+ var credentials = config.username + ':' + config.password;
+ var base64 = Java.type('java.util.Base64');
+ var encodedCredentials = base64.getEncoder().encodeToString(credentials.getBytes());
+ config.authorization = encodedCredentials
+  if (env == 'dev') {
+    // customize
+    // e.g. config.foo = 'bar';
+  } else if (env == 'e2e') {
+    // customize
+  }
+  return config;
+}
